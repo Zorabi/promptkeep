@@ -1,0 +1,17 @@
+data/
+__pycache__/
+.DS_Store
+build/
+work/
+*.sqlite3*
+
+# 已停止维护的早期网页原型
+/web/
+/server.py
+/start.command
+/tests/test_server.py
+
+# 本地备份和分发产物
+*.zip
+*.dmg
+*.app/
