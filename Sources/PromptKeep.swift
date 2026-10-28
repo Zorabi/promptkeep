@@ -399,7 +399,19 @@ struct ContentView: View {
                 List(selection: $selected) {
                     ForEach(filtered) { p in
                         VStack(alignment: .leading, spacing: 10) {
-                            HStack { Text(p.category).font(.caption).foregroundStyle(Color.accentColor); Spacer(); if p.favorite { Image(systemName: "star.fill").foregroundStyle(.orange).font(.caption) } }
+                            HStack {
+                                Text(p.category).font(.caption).foregroundStyle(Color.accentColor)
+                                Spacer()
+                                if store.drafts[p.id] != nil {
+                                    Label("未保存", systemImage: "pencil.circle.fill")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(Color.accentColor)
+                                        .padding(.horizontal, 6).padding(.vertical, 3)
+                                        .background(Color.accentColor.opacity(0.1), in: Capsule())
+                                        .help("这条提示词有未保存的修改")
+                                }
+                                if p.favorite { Image(systemName: "star.fill").foregroundStyle(.orange).font(.caption) }
+                            }
                             Text(p.title).font(.headline).lineLimit(2)
                             Text(p.content).font(.caption).foregroundStyle(.secondary).lineLimit(3)
                             HStack { Text(p.tags.map { "#\($0)" }.joined(separator: "  ")).lineLimit(1); Spacer(); Text(String(p.updated.prefix(10))) }.font(.system(size: 10)).foregroundStyle(.tertiary)
