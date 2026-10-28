@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 APP="build/词笺.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc Sources/Models.swift Sources/PromptKeep.swift -parse-as-library -O -target arm64-apple-macosx13.0 -o "$APP/Contents/MacOS/PromptKeep"
+xcrun swiftc Sources/Models.swift Sources/Store.swift Sources/PromptKeep.swift -parse-as-library -O -target arm64-apple-macosx13.0 -o "$APP/Contents/MacOS/PromptKeep"
 xcrun swift scripts/make-icon.swift "$PWD/Assets"
 iconutil -c icns Assets/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -16,10 +16,15 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleName</key><string>词笺</string>
 <key>CFBundleDisplayName</key><string>词笺</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.2.0</string>
-<key>CFBundleVersion</key><string>4</string>
+<key>CFBundleShortVersionString</key><string>1.3.0</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>dongx.promptkeep.record</string>
+<key>UTTypeDescription</key><string>词笺提示词引用</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+</dict></array>
 <key>NSHumanReadableCopyright</key><string>Copyright (c) 2026 dongx</string>
 </dict></plist>
 PLIST

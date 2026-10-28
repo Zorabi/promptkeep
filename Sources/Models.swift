@@ -23,14 +23,16 @@ struct Prompt: Codable, Identifiable, Hashable {
 struct Library: Codable {
     var prompts: [Prompt] = []
     var categories: [String] = []
-    enum CodingKeys: String, CodingKey { case prompts, categories }
-    init(prompts: [Prompt] = [], categories: [String] = []) {
-        self.prompts = prompts; self.categories = categories
+    var tags: [String] = []
+    enum CodingKeys: String, CodingKey { case prompts, categories, tags }
+    init(prompts: [Prompt] = [], categories: [String] = [], tags: [String] = []) {
+        self.prompts = prompts; self.categories = categories; self.tags = tags
     }
     init(from decoder: Decoder) throws {
         let box = try decoder.container(keyedBy: CodingKeys.self)
         prompts = try box.decode([Prompt].self, forKey: .prompts)
         categories = try box.decodeIfPresent([String].self, forKey: .categories) ?? []
+        tags = try box.decodeIfPresent([String].self, forKey: .tags) ?? []
     }
     var allCategories: [String] {
         Array(Set(categories + prompts.map(\.category))).filter { !$0.isEmpty && $0 != "未分类" }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
@@ -43,4 +45,32 @@ struct Library: Codable {
         categories = allCategories.filter { $0 != name }
         for i in prompts.indices where prompts[i].category == name { prompts[i].category = "未分类" }
     }
+    var allTags: [String] {
+        Array(Set(tags + prompts.flatMap(\.tags))).filter { !$0.isEmpty }.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+    mutating func renameTag(_ old: String, to name: String) {
+        tags = allTags.map { $0 == old ? name : $0 }
+        for i in prompts.indices {
+            prompts[i].tags = prompts[i].tags.map { $0 == old ? name : $0 }.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        }
+    }
+    mutating func deleteTag(_ name: String) {
+        tags = allTags.filter { $0 != name }
+        for i in prompts.indices { prompts[i].tags.removeAll { $0 == name } }
+    }
+    @discardableResult mutating func organize(ids: [String], category: String? = nil, tag: String? = nil) -> Bool {
+        let selected = Set(ids)
+        guard !selected.isEmpty, selected.isSubset(of: Set(prompts.map(\.id))),
+              category != nil || tag != nil,
+              category == nil || category == "未分类" || allCategories.contains(category!),
+              tag == nil || allTags.contains(tag!) else { return false }
+        for i in prompts.indices where selected.contains(prompts[i].id) {
+            var changed = false
+            if let category, prompts[i].category != category { prompts[i].category = category; changed = true }
+            if let tag, !prompts[i].tags.contains(tag) { prompts[i].tags.append(tag); changed = true }
+            if changed { prompts[i].updated = ISO8601DateFormatter().string(from: Date()) }
+        }
+        return true
+    }
+
 }
