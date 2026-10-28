@@ -70,6 +70,9 @@ struct Detail: View {
     @State private var section = 0
     @State private var values: [String: String] = [:]
     @State private var copied = false
+    @State private var previewExpanded = false
+    @State private var previewHovered = false
+    @FocusState private var previewFocused: Bool
     @State private var restore: Revision?
     var draft: TextDraft { store.draft(for: prompt) }
     var dirty: Bool { store.drafts[prompt.id] != nil }
@@ -145,19 +148,38 @@ struct Detail: View {
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.primary.opacity(0.1), lineWidth: 1))
                     .frame(minHeight: 180)
                 if section == 0 && !variables.isEmpty {
-                    DisclosureGroup("模板变量与复制预览") {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(variables, id: \.self) { key in
-                                    HStack {
-                                        Text(key).font(.caption).frame(width: 75, alignment: .leading)
-                                        TextField("输入\(key)", text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 })).textFieldStyle(.roundedBorder)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Button {
+                            previewExpanded.toggle()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: previewExpanded ? "chevron.down" : "chevron.right")
+                                    .font(.system(size: 10, weight: .semibold)).frame(width: 12)
+                                Text("模板变量与复制预览").font(.caption.weight(.medium))
+                                Text("\(variables.count)").font(.caption2).foregroundStyle(.secondary)
+                                Spacer()
+                            }.padding(12).contentShape(Rectangle())
+                        }.buttonStyle(.plain).focused($previewFocused)
+                            .onHover { previewHovered = $0 }
+                            .background(Color.primary.opacity(previewFocused || previewHovered ? 0.06 : 0))
+                            .accessibilityLabel(previewExpanded ? "收起模板变量与复制预览" : "展开模板变量与复制预览")
+                        if previewExpanded {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    ForEach(variables, id: \.self) { key in
+                                        HStack {
+                                            Text(key).font(.caption).frame(width: 75, alignment: .leading)
+                                            TextField("输入\(key)", text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 }))
+                                                .textFieldStyle(.roundedBorder)
+                                        }
                                     }
-                                }
-                                Text(filled).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                            }.padding(12)
-                        }.frame(maxHeight: 180)
-                    }
+                                    Text(filled).font(.caption).foregroundStyle(.secondary)
+                                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                                }.padding(.horizontal, 12).padding(.bottom, 12)
+                            }.frame(height: 180)
+                        }
+                    }.background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
@@ -184,7 +206,7 @@ struct Detail: View {
                 }
             }
         }.padding(28).frame(minWidth: 360)
-        .onChange(of: prompt.id) { _ in values = [:]; section = 0; copied = false }
+        .onChange(of: prompt.id) { _ in values = [:]; section = 0; copied = false; previewExpanded = false }
         .onChange(of: values) { _ in copied = false }
         .confirmationDialog("恢复此版本？当前内容会保留为历史版本。", isPresented: Binding(get: { restore != nil }, set: { if !$0 { restore = nil } })) {
             Button("恢复版本") {
