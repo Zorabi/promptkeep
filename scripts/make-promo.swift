@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (c) 2026 dongx
+import AppKit
+let out = URL(fileURLWithPath: "docs/images", isDirectory: true)
+try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
+let ink = NSColor(calibratedRed: 0.16, green: 0.20, blue: 0.28, alpha: 1)
+let muted = NSColor(calibratedRed: 0.48, green: 0.51, blue: 0.57, alpha: 1)
+// Match the installed app with the current macOS orange accent (#F7821B).
+let accent = NSColor(srgbRed: 247.0/255, green: 130.0/255, blue: 27.0/255, alpha: 1)
+let paper = NSColor(calibratedRed: 0.97, green: 0.96, blue: 0.93, alpha: 1)
+func rect(_ x: CGFloat,_ y: CGFloat,_ w: CGFloat,_ h: CGFloat,_ color: NSColor,_ r: CGFloat = 0) {
+    color.setFill(); NSBezierPath(roundedRect: NSRect(x:x,y:y,width:w,height:h), xRadius:r,yRadius:r).fill()
+}
+func text(_ str:String,_ x:CGFloat,_ y:CGFloat,_ size:CGFloat,_ color:NSColor = ink,_ bold:Bool = false,_ serif:Bool = false) {
+    let font = serif ? NSFont(name:"Songti SC",size:size)! : NSFont.systemFont(ofSize:size,weight:bold ? .semibold : .regular)
+    (str as NSString).draw(at:NSPoint(x:x,y:y),withAttributes:[.font:font,.foregroundColor:color])
+}
+func line(_ x:CGFloat,_ y:CGFloat,_ w:CGFloat) { rect(x,y,w,1,ink.withAlphaComponent(0.12)) }
+func mock(_ x:CGFloat,_ y:CGFloat,_ scale:CGFloat) {
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current!.cgContext.translateBy(x:x,y:y)
+    NSGraphicsContext.current!.cgContext.scaleBy(x:scale,y:scale)
+    NSGraphicsContext.saveGraphicsState()
+    let shadow=NSShadow();shadow.shadowColor=ink.withAlphaComponent(0.12);shadow.shadowBlurRadius=40;shadow.shadowOffset=NSSize(width:0,height:-15);shadow.set()
+    rect(0,0,1120,650,.white,22)
+    NSGraphicsContext.restoreGraphicsState()
+    rect(0,0,215,650,NSColor(calibratedWhite:0.96,alpha:1),22)
+    rect(195,0,20,650,NSColor(calibratedWhite:0.96,alpha:1))
+    rect(0,600,1120,50,NSColor(calibratedWhite:0.98,alpha:1),22)
+    rect(0,600,1120,25,NSColor(calibratedWhite:0.98,alpha:1))
+    for (i,c) in [NSColor.systemRed,NSColor.systemYellow,NSColor.systemGreen].enumerated(){rect(CGFloat(20+i*21),618,12,12,c,6)}
+    text("词笺",535,616,14,muted,true)
+    text("词笺",25,548,30,ink,true)
+    text("你的私人提示词工作台",25,523,11,muted)
+    rect(20,458,175,41,accent,8);text("＋  新建提示词",49,470,14,.white,true)
+    text("资料库",26,420,11,muted)
+    rect(15,374,185,33,ink.withAlphaComponent(0.065),7)
+    text("▦  全部提示词",29,384,13,ink,true)
+    text("☆  我的收藏",29,344,13,muted)
+    text("◷  最近使用",29,304,13,muted)
+    text("分类",26,256,11,muted)
+    rect(20,206,175,32,ink.withAlphaComponent(0.05),6)
+    text("☷  管理分类…",32,215,12,muted)
+    text("▱  写作",29,170,13,ink)
+    text("▱  开发",29,130,13,muted)
+    text("本地保存 · 无需账号",25,29,11,muted)
+    text("全部提示词",241,548,24,ink,true)
+    text("3 条提示词",242,521,11,muted)
+    let titles=["把想法写成清晰的文章","代码审查清单","整理一份会议纪要"]
+    for i in 0..<3 {
+        let yy:CGFloat=CGFloat(342-i*139)
+        rect(237,yy,320,120,i==0 ? accent.withAlphaComponent(0.06):NSColor(calibratedWhite:0.985,alpha:1),10)
+        text(i==1 ? "开发":"写作",252,yy+91,10,accent)
+        text(titles[i],252,yy+63,15,ink,true)
+        text(i==0 ? "请围绕「{{主题}}」，面向 {{读者}}…":"保存常用的指令，让下一次更轻松。",252,yy+37,11,muted)
+        text(i==0 ? "#写作  #模板":"#常用",252,yy+13,10,muted)
+    }
+    rect(579,0,1,600,ink.withAlphaComponent(0.08))
+    text("写作",613,552,11,accent)
+    text("把想法写成清晰的文章",613,508,25,ink,true)
+    text("#写作    #模板",614,480,11,muted)
+    text("提示词",614,432,13,accent,true);text("使用笔记",709,432,13,muted);text("历史版本",816,432,13,muted)
+    line(613,414,462)
+    text("请围绕「{{主题}}」，为 {{读者}} 写一篇文章。",614,369,15)
+    text("用具体场景开头，分点阐述观点。",614,329,15)
+    text("每个观点给出实例，结尾给出可执行的建议。",614,289,15)
+    rect(612,119,463,132,accent.withAlphaComponent(0.045),10)
+    text("填写模板变量",628,219,12,ink,true)
+    text("主题",628,188,11,muted);rect(677,178,376,31,.white,5);text("建立自己的提示词库",689,187,12,ink)
+    text("读者",628,146,11,muted);rect(677,136,376,31,.white,5);text("刚开始积累提示词的创作者",689,145,12,ink)
+    rect(612,48,463,45,accent,8);text("复制提示词",803,63,14,.white,true)
+    NSGraphicsContext.restoreGraphicsState()
+}
+func canvas(_ name:String,_ w:Int,_ h:Int,_ draw:()->Void) throws {
+    let rep=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:w,pixelsHigh:h,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0)!
+    NSGraphicsContext.saveGraphicsState();NSGraphicsContext.current=NSGraphicsContext(bitmapImageRep:rep)
+    rect(0,0,CGFloat(w),CGFloat(h),paper)
+    draw()
+    NSGraphicsContext.restoreGraphicsState()
+    try rep.representation(using:.png,properties:[:])!.write(to:out.appendingPathComponent(name))
+}
+try canvas("overview.png",2400,1500) {
+    text("词笺",126,1322,62,ink,true,true)
+    text("PROMPTKEEP  /  A PLACE FOR YOUR PROMPTS",128,1281,16,muted)
+    line(126,1243,2148)
+    text("把好用的提示词，",126,1085,88,ink,false,true)
+    text("留给下一次。",126,970,88,ink,false,true)
+    text("记录 · 分类 · 模板 · 复用",132,890,26,muted)
+    rect(1820,1315,450,55,accent.withAlphaComponent(0.08),27)
+    text("原生 macOS  ·  本地保存",1860,1331,23,accent)
+    mock(770,190,1.33)
+    text("01",132,663,18,accent,true);text("随手记录，分门别类。",132,612,30,ink,true,true)
+    text("独立分类管理，快速搜索与收藏。",132,562,22,muted)
+    text("02",132,437,18,accent,true);text("填好变量，即刻复用。",132,386,30,ink,true,true)
+    text("保留模板、使用笔记与历史版本。",132,336,22,muted)
+    line(126,110,2148)
+    text("macOS 13+  /  Apple Silicon  /  无需账号",132,57,18,muted)
+    text("界面示意 · dongx",2050,57,17,muted)
+}
+try canvas("poster.png",1200,1600) {
+    text("词笺",84,1435,66,ink,true,true)
+    text("PROMPTKEEP",89,1397,16,muted)
+    line(84,1354,1032)
+    text("灵感有迹，",84,1212,86,ink,false,true)
+    text("好词成笺。",84,1094,86,ink,false,true)
+    text("你的本地提示词工作台",89,1027,26,muted)
+    mock(85,370,0.92)
+    text("整理",89,258,28,accent,true,true);text("分类 · 标签 · 收藏 · 搜索",89,215,20,muted)
+    text("复用",645,258,28,accent,true,true);text("模板变量 · 一键复制",645,215,20,muted)
+    line(84,145,1032)
+    text("原生 macOS  /  本地保存  /  无需账号",89,94,18,muted)
+    text("界面示意 · dongx",936,49,14,muted)
+}
+try canvas("social.png",1200,630) {
+    text("词笺",65,512,48,ink,true,true)
+    text("PROMPTKEEP",68,480,12,muted)
+    text("把好用的提示词，",65,356,43,ink,false,true)
+    text("留给下一次。",65,293,43,ink,false,true)
+    text("记录 / 分类 / 模板 / 复用",69,224,19,muted)
+    text("原生 macOS · 本地保存",69,111,16,accent)
+    mock(560,126,0.53)
+    line(65,68,1070)
+    text("macOS 13+ · Apple Silicon",69,31,12,muted)
+    text("界面示意 · dongx",1015,31,12,muted)
+}
+print("已生成 overview.png / poster.png / social.png")
