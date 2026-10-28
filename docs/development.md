@@ -4,7 +4,7 @@
 
 运行 `./scripts/build.sh`，脚本使用本机 Xcode 工具链生成 Apple 芯片应用，最低部署目标为 macOS 13。应用标识为 `dongx.promptkeep`，作者及版权为 dongx。当前使用临时签名，未经过 Apple 公证；正式分发前需要另行配置开发者签名及公证。
 
-`Sources/Models.swift` 定义数据模型及分类操作，`Sources/PromptKeep.swift` 包含 SwiftUI 界面和本地 JSON 存储，`scripts/make-icon.swift` 生成图标，`Assets/` 保存生成资源。
+`Sources/Models.swift` 定义数据模型及分类操作，`Sources/PromptKeep.swift` 包含 SwiftUI 界面，`Sources/Store.swift` 负责本地 JSON 存储，`scripts/make-icon.swift` 生成图标，`Assets/` 保存生成资源。
 
 ## 数据
 
@@ -51,3 +51,7 @@ build/tests/category-tests
 运行 `xcrun swift scripts/make-promo.swift` 生成 `docs/images/` 下的横版介绍图、竖版海报与分享封面。素材由矢量绘制的界面示意构成，不包含个人提示词或截图，署名为 dongx。
 
 宣传图当前使用与本机应用一致的橙色系统强调色（sRGB `#F7821B`）。应用控件会受 macOS 强调色设置影响，制作新素材时应先核对实际界面。
+
+## 标签与拖放
+
+资料库独立保存标签名称，并兼容缺少 `tags` 字段的旧备份。拖放使用原生 SwiftUI `onDrag` / `onDrop` 与 `NSItemProvider`，自定义类型只携带提示词 ID；目标校验本机 ID 与分类、标签后，按一次原子写入保存。分类移动和标签追加不产生正文历史版本。标签追加去重，未知 ID 的批次整体拒绝。右键菜单提供相同操作。
