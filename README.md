@@ -14,6 +14,7 @@
 
 ## 功能
 
+- **直接编辑**：在详情页修改标题、正文和使用笔记，点击「保存」或按 `⌘S`，无需进入编辑弹窗。
 - **整理记录**：新建、编辑、删除、创建副本，支持独立的分类与标签管理，以及收藏。
 - **快速查找**：搜索标题、正文、标签及使用笔记，按更新时间、名称或使用次数排序。
 - **拖动整理**：把提示词拖到侧边栏分类以移动，拖到标签以追加标签。
@@ -74,9 +75,15 @@
 
 侧边栏可切换全部记录、收藏、已使用的记录和分类。详情页的星形按钮用于收藏；右键单击列表记录可以编辑、创建副本或删除。删除前会确认，目前不提供回收站，建议定期备份。
 
+### 编辑与保存
+
+选择提示词后，可直接在详情页修改标题、正文和使用笔记。点击底部「保存」或按 `⌘S` 提交修改；「取消修改」恢复到上次保存的文本。标题和正文不能为空。分类和标签可在详情顶部调整。
+
+未保存的文本会保留为本地草稿，切换记录或重启应用后可以继续编辑。保存正文或笔记时会保留旧版本；导出备份只包含已保存的内容，请先保存需要备份的草稿。
+
 ### 模板与笔记
 
-在正文中写入 `{{主题}}` 等变量，详情页会显示对应输入框。填写变量只影响预览和复制内容，不修改原模板。未填写的变量保留占位符。
+在正文中写入 `{{主题}}` 等变量，展开「模板变量与复制预览」可填写变量并查看结果。填写变量只影响预览和复制内容，不修改原模板。未填写的变量保留占位符。
 
 「使用笔记」为可选内容。正文或笔记变更后，旧内容会出现在「历史版本」中；恢复时，当前内容也会保留为版本。
 
@@ -95,6 +102,11 @@ PromptFlow 数据可先导出 JSON，再按[迁移说明](docs/development.md#pr
 ```sh
 ./scripts/build.sh
 codesign --verify --deep --strict build/词笺.app
+mkdir -p build/tests
+xcrun swiftc Sources/Models.swift tests/CategoryTests.swift -o build/tests/category-tests
+build/tests/category-tests
+xcrun swiftc Sources/Models.swift Sources/Store.swift tests/DraftTests.swift -o build/tests/draft-tests
+build/tests/draft-tests
 python3 -m unittest discover -s tests -p 'test_migration.py' -v
 ```
 

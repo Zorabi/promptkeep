@@ -67,66 +67,130 @@ struct Editor: View {
 struct Detail: View {
     @EnvironmentObject var store: Store
     var prompt: Prompt
-    var edit: () -> Void
     @State private var section = 0
     @State private var values: [String: String] = [:]
     @State private var copied = false
     @State private var restore: Revision?
+    var draft: TextDraft { store.draft(for: prompt) }
+    var dirty: Bool { store.drafts[prompt.id] != nil }
+    func binding(_ key: WritableKeyPath<TextDraft, String>) -> Binding<String> {
+        Binding(get: { store.draft(for: prompt)[keyPath: key] }, set: { value in
+            var next = store.draft(for: prompt); next[keyPath: key] = value
+            store.updateDraft(id: prompt.id, next); copied = false
+        })
+    }
     var variables: [String] {
         let regex = try! NSRegularExpression(pattern: #"\{\{([^{}]+)\}\}"#)
-        let text = prompt.content as NSString
+        let text = draft.content as NSString
         var seen = Set<String>()
-        return regex.matches(in: prompt.content, range: NSRange(location: 0, length: text.length)).map { text.substring(with: $0.range(at: 1)) }.filter { seen.insert($0).inserted }
+        return regex.matches(in: draft.content, range: NSRange(location: 0, length: text.length)).map { text.substring(with: $0.range(at: 1)) }.filter { seen.insert($0).inserted }
     }
-    var filled: String { variables.reduce(prompt.content) { text, key in let value = values[key] ?? ""; return value.isEmpty ? text : text.replacingOccurrences(of: "{{\(key)}}", with: value) } }
+    var filled: String { variables.reduce(draft.content) { text, key in
+        let value = values[key] ?? ""
+        return value.isEmpty ? text : text.replacingOccurrences(of: "{{\(key)}}", with: value)
+    } }
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Text(prompt.category).font(.caption).padding(.horizontal, 10).padding(.vertical, 5).background(Color.accentColor.opacity(0.1)).clipShape(Capsule())
+                Menu {
+                    ForEach(["未分类"] + store.categories, id: \.self) { category in
+                        Button(category) { _ = store.organize(ids: [prompt.id], category: category) }
+                    }
+                } label: { Label(prompt.category, systemImage: "folder") }.menuStyle(.borderlessButton).fixedSize()
                 Spacer()
-                Button { var p = prompt; p.favorite.toggle(); store.save(p) } label: { Image(systemName: prompt.favorite ? "star.fill" : "star") }.help("收藏")
-                Button("编辑", action: edit)
+                Button { var p = prompt; p.favorite.toggle(); store.save(p) } label: {
+                    Image(systemName: prompt.favorite ? "star.fill" : "star")
+                }.help("收藏")
             }
-            Text(prompt.title).font(.system(size: 27, weight: .bold, design: .rounded)).textSelection(.enabled)
-            Text(prompt.tags.map { "#\($0)" }.joined(separator: "   ")).foregroundStyle(.secondary).font(.caption)
-            Picker("内容", selection: $section) { Text("提示词").tag(0); Text("使用笔记").tag(1); Text("历史版本 · \(prompt.versions.count)").tag(2) }.pickerStyle(.segmented)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if section == 2 {
-                        if prompt.versions.isEmpty { Text("编辑内容并保存后，旧版本会保留在这里。").foregroundStyle(.secondary).padding(.top, 30) }
+            TextField("提示词标题", text: binding(\.title), axis: .vertical)
+                .font(.system(size: 27, weight: .bold, design: .rounded)).textFieldStyle(.plain)
+                .padding(8).background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 7))
+            HStack {
+                Text(prompt.tags.map { "#\($0)" }.joined(separator: "   ")).foregroundStyle(.secondary).font(.caption)
+                Spacer()
+                Menu("标签") {
+                    ForEach(store.tags, id: \.self) { tag in
+                        Toggle(tag, isOn: Binding(get: { prompt.tags.contains(tag) }, set: { on in
+                            var p = prompt
+                            if on { if !p.tags.contains(tag) { p.tags.append(tag) } } else { p.tags.removeAll { $0 == tag } }
+                            store.save(p)
+                        }))
+                    }
+                }.menuStyle(.borderlessButton).font(.caption).fixedSize()
+            }
+            Picker("内容", selection: $section) {
+                Text("提示词").tag(0); Text("使用笔记").tag(1); Text("历史版本 · \(prompt.versions.count)").tag(2)
+            }.pickerStyle(.segmented)
+            if section == 2 {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        if prompt.versions.isEmpty { Text("保存修改后，旧正文和笔记会保留在这里。").foregroundStyle(.secondary).padding(.top, 30) }
                         ForEach(Array(prompt.versions.enumerated().reversed()), id: \.offset) { _, version in
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(version.date.prefix(10)).font(.caption).foregroundStyle(.secondary)
                                 Text(version.content).lineLimit(7).textSelection(.enabled)
-                                Button("恢复此版本") { restore = version }
-                            }.padding(18).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 10))
-                        }
-                    } else {
-                        Text(section == 0 ? filled : (prompt.result.isEmpty ? "记录适用场景、使用方法或改进想法。点击编辑添加。" : prompt.result))
-                            .font(.system(size: 14)).lineSpacing(7).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(20).background(Color(nsColor: .textBackgroundColor)).clipShape(RoundedRectangle(cornerRadius: 12))
-                        if section == 0 && !variables.isEmpty {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Label("填写模板变量", systemImage: "slider.horizontal.3").font(.headline)
-                                ForEach(variables, id: \.self) { key in
-                                    VStack(alignment: .leading) { Text(key).font(.caption).foregroundStyle(.secondary); TextField("输入\(key)", text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 })).textFieldStyle(.roundedBorder) }
-                                }
-                            }.padding(18).background(Color.accentColor.opacity(0.05)).clipShape(RoundedRectangle(cornerRadius: 12))
+                                Button("恢复此版本") { restore = version }.disabled(dirty)
+                            }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.quaternary.opacity(0.4)).clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
-                }.padding(.vertical, 2)
+                }
+            } else {
+                Text(section == 0 ? "直接编辑提示词 · 使用 {{变量名}} 创建模板" : "直接记录适用场景、使用方法和改进想法")
+                    .font(.caption).foregroundStyle(.secondary)
+                TextEditor(text: binding(section == 0 ? \.content : \.result))
+                    .font(.system(size: 14)).lineSpacing(6).padding(12)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                    .frame(minHeight: 180)
+                if section == 0 && !variables.isEmpty {
+                    DisclosureGroup("模板变量与复制预览") {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(variables, id: \.self) { key in
+                                    HStack {
+                                        Text(key).font(.caption).frame(width: 75, alignment: .leading)
+                                        TextField("输入\(key)", text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 })).textFieldStyle(.roundedBorder)
+                                    }
+                                }
+                                Text(filled).font(.caption).foregroundStyle(.secondary).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                            }.padding(12)
+                        }.frame(maxHeight: 180)
+                    }
+                }
             }
-            if section != 2 {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(dirty ? (draft.canSave ? "有未保存修改" : "标题和正文不能为空") : "已保存", systemImage: dirty ? "pencil.circle" : "checkmark.circle")
+                    .font(.caption).foregroundStyle(dirty ? Color.orange : Color.secondary)
+                HStack(spacing: 10) {
+                    if section != 2 {
                 Button {
-                    NSPasteboard.general.clearContents(); NSPasteboard.general.setString(section == 0 ? filled : prompt.result, forType: .string)
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(section == 0 ? filled : draft.result, forType: .string)
                     var p = prompt; p.uses += 1; store.save(p); copied = true
-                } label: { Label(copied ? "已复制" : "复制\(section == 0 ? "提示词" : "笔记")", systemImage: copied ? "checkmark" : "doc.on.doc").frame(maxWidth: .infinity).padding(7) }.buttonStyle(QuietButtonStyle(prominent: true)).disabled(section == 1 && prompt.result.isEmpty)
-                Text("已复制 \(prompt.uses) 次 · 数据仅保存在本机").font(.caption).foregroundStyle(.secondary)
+                } label: {
+                    Label(copied ? "已复制" : "复制\(section == 0 ? "提示词" : "笔记")", systemImage: copied ? "checkmark" : "doc.on.doc")
+                        .padding(.horizontal, 3).padding(.vertical, 2)
+                }.buttonStyle(QuietButtonStyle())
+                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
+                    .disabled(section == 0 ? draft.content.isEmpty : draft.result.isEmpty)
+                    .help("复制当前内容；未保存的修改会保留为草稿")
+                    }
+                    Spacer(minLength: 8)
+                    if dirty { Button("取消修改") { store.discardDraft(prompt.id) } }
+                    Button("保存") { store.saveDraft(prompt.id) }.keyboardShortcut("s")
+                        .buttonStyle(QuietButtonStyle(prominent: true)).disabled(!dirty || !draft.canSave)
+                }
             }
         }.padding(28).frame(minWidth: 360)
         .onChange(of: prompt.id) { _ in values = [:]; section = 0; copied = false }
         .onChange(of: values) { _ in copied = false }
         .confirmationDialog("恢复此版本？当前内容会保留为历史版本。", isPresented: Binding(get: { restore != nil }, set: { if !$0 { restore = nil } })) {
-            Button("恢复版本") { if let v = restore { var p = prompt; p.content = v.content; p.result = v.result; store.save(p); section = 0 }; restore = nil }
+            Button("恢复版本") {
+                if let v = restore { var p = prompt; p.content = v.content; p.result = v.result; store.save(p); section = 0 }
+                restore = nil
+            }
         }
     }
 }
@@ -321,7 +385,7 @@ struct ContentView: View {
                         .onDrag {
                             NSItemProvider(item: Data(p.id.utf8) as NSData, typeIdentifier: UTType.promptkeepRecord.identifier)
                         }
-                        .contextMenu { Button("编辑") { editor = p }; Menu("移到分类") {
+                        .contextMenu { Button("编辑") { selected = p.id }; Menu("移到分类") {
                             ForEach(categories, id: \.self) { category in Button(category) { _ = store.organize(ids: [p.id], category: category) } }
                         }; Menu("添加标签") {
                             ForEach(store.tags, id: \.self) { tag in Button(tag) { _ = store.organize(ids: [p.id], tag: tag) } }
@@ -331,7 +395,7 @@ struct ContentView: View {
                 }.listStyle(.inset)
             }.searchable(text: $search, prompt: "搜索标题、内容和标签").navigationSplitViewColumnWidth(min: 300, ideal: 370, max: 520)
         } detail: {
-            if let p = store.library.prompts.first(where: {$0.id == selected}) { Detail(prompt: p) { editor = p } }
+            if let p = store.library.prompts.first(where: {$0.id == selected}) { Detail(prompt: p) }
             else { VStack(spacing: 18) { Image(systemName: "text.alignleft").font(.system(size: 40, weight: .ultraLight)); Text("留住每一个好想法").font(.title2); Text("选择一条提示词，开始下一次创作。").font(.callout) }.foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PromptKeep.manageCategories"))) { _ in

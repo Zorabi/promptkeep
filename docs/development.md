@@ -55,3 +55,15 @@ build/tests/category-tests
 ## 标签与拖放
 
 资料库独立保存标签名称，并兼容缺少 `tags` 字段的旧备份。拖放使用原生 SwiftUI `onDrag` / `onDrop` 与 `NSItemProvider`，自定义类型只携带提示词 ID；目标校验本机 ID 与分类、标签后，按一次原子写入保存。分类移动和标签追加不产生正文历史版本。标签追加去重，未知 ID 的批次整体拒绝。右键菜单提供相同操作。
+
+## 直接编辑与草稿
+
+标题、正文和使用笔记可在详情页直接编辑，修改保留在独立的 `drafts.json` 中。草稿按记录 ID 保存，可跨记录和应用重启恢复；点击保存后合并到最新记录，仅更新文本，保留期间发生的分类、标签及使用次数变更。草稿不随 JSON 备份导出。保存失败保留草稿，取消修改只丢弃该记录的草稿。
+
+草稿验证使用独立的临时资料库，不访问用户数据：
+
+```sh
+mkdir -p build/tests
+xcrun swiftc Sources/Models.swift Sources/Store.swift tests/DraftTests.swift -o build/tests/draft-tests
+build/tests/draft-tests
+```

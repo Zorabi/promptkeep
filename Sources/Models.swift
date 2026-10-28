@@ -74,3 +74,16 @@ struct Library: Codable {
     }
 
 }
+
+struct TextDraft: Codable, Equatable {
+    var title: String
+    var content: String
+    var result: String
+    init(_ prompt: Prompt) {
+        title = prompt.title; content = prompt.content; result = prompt.result
+    }
+    var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}

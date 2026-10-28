@@ -8,14 +8,47 @@ import UniformTypeIdentifiers
 final class Store: ObservableObject {
     @Published var library = Library()
     @Published var error: String?
+    @Published private(set) var drafts: [String: TextDraft] = [:]
+    private let draftFile: URL
     let file: URL
-    init() {
-        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("dongx.promptkeep", isDirectory: true)
+    init(directory: URL? = nil) {
+        let folder = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("dongx.promptkeep", isDirectory: true)
         file = folder.appendingPathComponent("library.json")
+        draftFile = folder.appendingPathComponent("drafts.json")
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             if FileManager.default.fileExists(atPath: file.path) { library = try JSONDecoder().decode(Library.self, from: Data(contentsOf: file)) }
-        } catch { self.error = "无法读取资料库：\(error.localizedDescription)" }
+            if FileManager.default.fileExists(atPath: draftFile.path) {
+                let saved = try JSONDecoder().decode([String: TextDraft].self, from: Data(contentsOf: draftFile))
+                drafts = saved.filter { key, draft in library.prompts.contains { $0.id == key && TextDraft($0) != draft } }
+            }
+        } catch { self.error = "无法读取资料库或草稿：\(error.localizedDescription)" }
+    }
+    func draft(for prompt: Prompt) -> TextDraft { drafts[prompt.id] ?? TextDraft(prompt) }
+    @discardableResult private func persistDrafts(_ next: [String: TextDraft]) -> Bool {
+        do {
+            try JSONEncoder().encode(next).write(to: draftFile, options: .atomic)
+            drafts = next
+            return true
+        } catch { self.error = "草稿保存失败：\(error.localizedDescription)"; return false }
+    }
+    @discardableResult func updateDraft(id: String, _ draft: TextDraft) -> Bool {
+        guard let prompt = library.prompts.first(where: { $0.id == id }) else { return false }
+        var next = drafts
+        if draft == TextDraft(prompt) { next.removeValue(forKey: id) } else { next[id] = draft }
+        return persistDrafts(next)
+    }
+    @discardableResult func discardDraft(_ id: String) -> Bool {
+        var next = drafts; next.removeValue(forKey: id); return persistDrafts(next)
+    }
+    @discardableResult func saveDraft(_ id: String) -> Bool {
+        guard let draft = drafts[id], draft.canSave,
+              var prompt = library.prompts.first(where: { $0.id == id }) else { return false }
+        prompt.title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        prompt.content = draft.content
+        prompt.result = draft.result
+        guard save(prompt) else { return false }
+        return discardDraft(id)
     }
     @discardableResult func commit(_ next: Library) -> Bool {
         do {
@@ -34,8 +67,8 @@ final class Store: ObservableObject {
             }
             item.updated = ISO8601DateFormatter().string(from: Date()); next.prompts[i] = item
         } else { next.prompts.insert(item, at: 0) }
-        next.tags = next.allTags
         next.categories = next.allCategories
+        next.tags = next.allTags
         return commit(next)
     }
     var categories: [String] { library.allCategories }
@@ -69,7 +102,7 @@ final class Store: ObservableObject {
         guard next.organize(ids: ids, category: category, tag: tag) else { return false }
         return commit(next)
     }
-    func remove(_ id: String) { var next = library; next.prompts.removeAll {$0.id == id}; commit(next) }
+    func remove(_ id: String) { var next = library; next.prompts.removeAll {$0.id == id}; if commit(next) { discardDraft(id) } }
     func exportFile() {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "词笺-backup.json"
         if panel.runModal() == .OK, let url = panel.url {
