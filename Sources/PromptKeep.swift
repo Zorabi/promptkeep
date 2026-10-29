@@ -60,10 +60,10 @@ struct Editor: View {
                 TextField("标签，用逗号分隔", text: $tags).textFieldStyle(.roundedBorder)
             }
             Text("提示词内容").font(.headline)
-            Text("使用 {{变量名}} 创建可填充的模板").font(.caption).foregroundStyle(.secondary)
-            TextEditor(text: $prompt.content).font(.body.monospaced()).padding(8).background(.background).clipShape(RoundedRectangle(cornerRadius: 8)).frame(minHeight: 200)
+            Text("使用 {{变量名}} 创建可填充的模板").font(.system(size: 13)).foregroundStyle(.secondary)
+            TextEditor(text: $prompt.content).font(.system(size: 16)).padding(8).background(.background).clipShape(RoundedRectangle(cornerRadius: 8)).frame(minHeight: 200)
             Text("使用笔记（可选）").font(.headline)
-            TextEditor(text: $prompt.result).padding(8).background(.background).clipShape(RoundedRectangle(cornerRadius: 8)).frame(height: 115)
+            TextEditor(text: $prompt.result).font(.system(size: 16)).padding(8).background(.background).clipShape(RoundedRectangle(cornerRadius: 8)).frame(height: 115)
             HStack {
                 Button("取消") { if dirty { confirmClose = true } else { dismiss() } }.keyboardShortcut(.cancelAction)
                 Spacer()
@@ -127,7 +127,7 @@ struct Detail: View {
                 .font(.system(size: 27, weight: .bold, design: .rounded)).textFieldStyle(.plain)
                 .padding(8).background(Color.primary.opacity(0.025), in: RoundedRectangle(cornerRadius: 7))
             HStack {
-                Text(prompt.tags.map { "#\($0)" }.joined(separator: "   ")).foregroundStyle(.secondary).font(.caption)
+                Text(prompt.tags.map { "#\($0)" }.joined(separator: "   ")).foregroundStyle(.secondary).font(.system(size: 13))
                 Spacer()
                 Menu("标签") {
                     ForEach(store.tags, id: \.self) { tag in
@@ -137,7 +137,7 @@ struct Detail: View {
                             store.save(p)
                         }))
                     }
-                }.menuStyle(.borderlessButton).font(.caption).fixedSize()
+                }.menuStyle(.borderlessButton).font(.system(size: 13)).fixedSize()
             }
             Picker("内容", selection: $section) {
                 Text("提示词").tag(0); Text("使用笔记").tag(1); Text("历史版本 · \(prompt.versions.count)").tag(2)
@@ -148,7 +148,7 @@ struct Detail: View {
                         if prompt.versions.isEmpty { Text("保存修改后，旧正文和笔记会保留在这里。").foregroundStyle(.secondary).padding(.top, 30) }
                         ForEach(Array(prompt.versions.enumerated().reversed()), id: \.offset) { _, version in
                             VStack(alignment: .leading, spacing: 10) {
-                                Text(version.date.prefix(10)).font(.caption).foregroundStyle(.secondary)
+                                Text(version.date.prefix(10)).font(.system(size: 13)).foregroundStyle(.secondary)
                                 Text(version.content).lineLimit(7).textSelection(.enabled)
                                 Button("恢复此版本") { restore = version }.disabled(dirty)
                             }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
@@ -158,9 +158,9 @@ struct Detail: View {
                 }
             } else {
                 Text(section == 0 ? "直接编辑提示词 · 使用 {{变量名}} 创建模板" : "直接记录适用场景、使用方法和改进想法")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.system(size: 13)).foregroundStyle(.secondary)
                 TextEditor(text: binding(section == 0 ? \.content : \.result))
-                    .font(.system(size: 14)).lineSpacing(6).padding(12)
+                    .font(.system(size: 16)).lineSpacing(7).padding(12)
                     .background(Color(nsColor: .textBackgroundColor))
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.primary.opacity(0.1), lineWidth: 1))
@@ -173,8 +173,8 @@ struct Detail: View {
                             HStack(spacing: 8) {
                                 Image(systemName: previewExpanded ? "chevron.down" : "chevron.right")
                                     .font(.system(size: 10, weight: .semibold)).frame(width: 12)
-                                Text("模板变量与复制预览").font(.caption.weight(.medium))
-                                Text("\(variables.count)").font(.caption2).foregroundStyle(.secondary)
+                                Text("模板变量与复制预览").font(.system(size: 13, weight: .medium))
+                                Text("\(variables.count)").font(.system(size: 12)).foregroundStyle(.secondary)
                                 Spacer()
                             }.padding(12).contentShape(Rectangle())
                         }.buttonStyle(.plain).focused($previewFocused)
@@ -186,12 +186,12 @@ struct Detail: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     ForEach(variables, id: \.self) { key in
                                         HStack {
-                                            Text(key).font(.caption).frame(width: 75, alignment: .leading)
+                                            Text(key).font(.system(size: 13)).frame(width: 75, alignment: .leading)
                                             TextField("输入\(key)", text: Binding(get: { values[key] ?? "" }, set: { values[key] = $0 }))
                                                 .textFieldStyle(.roundedBorder)
                                         }
                                     }
-                                    Text(filled).font(.caption).foregroundStyle(.secondary)
+                                    Text(filled).font(.system(size: 13)).foregroundStyle(.secondary)
                                         .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
                                 }.padding(.horizontal, 12).padding(.bottom, 12)
                             }.frame(height: 180)
@@ -202,7 +202,7 @@ struct Detail: View {
             }
             VStack(alignment: .leading, spacing: 10) {
                 Label(dirty ? (draft.canSave ? "有未保存修改" : "标题和正文不能为空") : "已保存", systemImage: dirty ? "pencil.circle" : "checkmark.circle")
-                    .font(.caption).foregroundStyle(dirty ? Color.orange : Color.secondary)
+                    .font(.system(size: 13)).foregroundStyle(dirty ? Color.orange : Color.secondary)
                 HStack(spacing: 10) {
                     if section != 2 {
                 Button {
@@ -249,7 +249,7 @@ struct CategoryManager: View {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("\(kind)管理").font(.title2.bold())
-                    Text(isTag ? "一个提示词可以添加多个标签。" : "先建分类，再慢慢收集好用的提示词。").font(.caption).foregroundStyle(.secondary)
+                    Text(isTag ? "一个提示词可以添加多个标签。" : "先建分类，再慢慢收集好用的提示词。").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("完成") { dismiss() }.keyboardShortcut(.cancelAction)
@@ -267,12 +267,12 @@ struct CategoryManager: View {
                     if !isTag { HStack {
                         Label("未分类", systemImage: "tray")
                         Spacer()
-                        Text("系统分类").font(.caption).foregroundStyle(.secondary)
+                        Text("系统分类").font(.system(size: 13)).foregroundStyle(.secondary)
                     }.padding(12) }
                     ForEach(names, id: \.self) { category in
                         HStack {
                             Label(category, systemImage: isTag ? "tag" : "folder")
-                            Text("\(store.library.prompts.filter { isTag ? $0.tags.contains(category) : $0.category == category }.count) 条").font(.caption).foregroundStyle(.secondary)
+                            Text("\(store.library.prompts.filter { isTag ? $0.tags.contains(category) : $0.category == category }.count) 条").font(.system(size: 13)).foregroundStyle(.secondary)
                             Spacer()
                             Button("重命名") { editing = category; name = category }
                             Button("删除", role: .destructive) { deleting = category }
@@ -281,7 +281,7 @@ struct CategoryManager: View {
                     if names.isEmpty { Text("还没有自定义\(kind)，添加后会显示在侧边栏。").font(.callout).foregroundStyle(.secondary).padding(24) }
                 }
             }
-            Text(isTag ? "删除标签只会移除关联，提示词和其他标签都会保留。" : "删除分类不会删除提示词，内容会移入「未分类」。").font(.caption).foregroundStyle(.secondary)
+            Text(isTag ? "删除标签只会移除关联，提示词和其他标签都会保留。" : "删除分类不会删除提示词，内容会移入「未分类」。").font(.system(size: 13)).foregroundStyle(.secondary)
         }.padding(24).frame(width: 580, height: 430)
         .confirmationDialog("删除「\(deleting ?? "")」\(kind)？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("删除\(kind)", role: .destructive) {
@@ -317,7 +317,7 @@ struct OrganizationRow: View {
     var body: some View {
         Button(action: select) {
             Label(name, systemImage: isTag ? "tag" : "folder")
-                .font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading)
+                .font(.system(size: 14)).frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12).padding(.vertical, 8).contentShape(Rectangle())
         }.buttonStyle(.plain).focused($focused)
             .background((selected || focused || hovered) ? Color.primary.opacity(selected ? 0.09 : 0.045) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
@@ -343,6 +343,50 @@ struct OrganizationRow: View {
             .help(isTag ? "拖入提示词，追加此标签" : "拖入提示词，移到此分类")
     }
 }
+struct PromptListRow: View {
+    let prompt: Prompt
+    let draft: TextDraft?
+    private var summary: String {
+        let text = draft?.content ?? prompt.content
+        return text.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "#*>- \t")) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "`", with: "")
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .firstTextBaseline, spacing: 7) {
+                Text(draft?.title.isEmpty == false ? draft!.title : prompt.title)
+                    .font(.system(size: 16, weight: .semibold)).lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if prompt.favorite {
+                    Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(AppColors.action)
+                        .accessibilityLabel("已收藏")
+                }
+                if draft != nil {
+                    Label { Text("未保存") } icon: { Image(systemName: "circle.fill").font(.system(size: 5)) }
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(AppColors.action)
+                        .fixedSize().help("这条提示词有未保存的修改")
+                }
+            }
+            Text(summary.isEmpty ? "暂无内容" : summary)
+                .font(.system(size: 14)).foregroundStyle(.secondary)
+                .lineSpacing(4).lineLimit(2, reservesSpace: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 7) {
+                Text(prompt.category).foregroundStyle(AppColors.action).lineLimit(1)
+                if !prompt.tags.isEmpty {
+                    Text(prompt.tags.prefix(2).map { "#" + $0 }.joined(separator: "  ") + (prompt.tags.count > 2 ? "  +\(prompt.tags.count - 2)" : ""))
+                        .foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Text(String(prompt.updated.prefix(10))).foregroundStyle(.secondary).fixedSize()
+            }.font(.system(size: 12))
+        }.padding(.vertical, 12).padding(.horizontal, 4)
+    }
+}
 struct ContentView: View {
     @EnvironmentObject var store: Store
     @State private var filter = "全部提示词"
@@ -365,7 +409,7 @@ struct ContentView: View {
         Button(action: action) {
             HStack(spacing: 7) {
                 Image(systemName: "slider.horizontal.3").font(.system(size: 11))
-                Text(title).font(.system(size: 11))
+                Text(title).font(.system(size: 13, weight: .medium))
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
             }.foregroundStyle(AppColors.action).padding(.horizontal, 10).padding(.vertical, 9)
@@ -376,27 +420,27 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 12) { Image(systemName: "text.book.closed.fill").font(.title).foregroundStyle(Color.accentColor); VStack(alignment: .leading) { Text("词笺").font(.headline); Text("你的私人提示词工作台").font(.caption2).foregroundStyle(.secondary) } }.padding(18)
+                HStack(spacing: 12) { Image(systemName: "text.book.closed.fill").font(.title).foregroundStyle(Color.accentColor); VStack(alignment: .leading) { Text("词笺").font(.headline); Text("你的私人提示词工作台").font(.system(size: 12)).foregroundStyle(.secondary) } }.padding(18)
                 Button { editor = Prompt() } label: { Label("新建提示词", systemImage: "plus").frame(maxWidth: .infinity).padding(5) }.buttonStyle(QuietButtonStyle(prominent: true)).padding(.horizontal, 16).padding(.bottom, 16).keyboardShortcut("n")
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("资料库").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.bottom, 4)
+                        Text("资料库").font(.system(size: 13)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.bottom, 4)
                         ForEach([("全部提示词", "square.grid.2x2"), ("我的收藏", "star"), ("最近使用", "clock")], id: \.0) { title, icon in
                             Button { filter = title } label: {
-                                Label(title, systemImage: icon).font(.system(size: 13)).frame(maxWidth: .infinity, alignment: .leading)
+                                Label(title, systemImage: icon).font(.system(size: 14)).frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 12).padding(.vertical, 8).contentShape(Rectangle())
                             }.buttonStyle(.plain).focused($focusedNavigation, equals: title)
                             .onHover { hoveredNavigation = $0 ? title : nil }
                             .background(filter == title || focusedNavigation == title || hoveredNavigation == title ? Color.primary.opacity(filter == title ? 0.09 : 0.045) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
                         }
-                        Text("分类").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
+                        Text("分类").font(.system(size: 13)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
                         managementButton("管理分类…") { managingCategories = true }
                         ForEach(categories, id: \.self) { category in
                             OrganizationRow(name: category, selected: filter == "分类:" + category, select: { filter = "分类:" + category }) {
                                 store.organize(ids: $0, category: category)
                             }
                         }
-                        Text("标签").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
+                        Text("标签").font(.system(size: 13)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
                         managementButton("管理标签…") { managingTags = true }
                         ForEach(store.tags, id: \.self) { tag in
                             OrganizationRow(name: tag, isTag: true, selected: filter == "标签:" + tag, select: { filter = "标签:" + tag }) {
@@ -406,33 +450,16 @@ struct ContentView: View {
                     }.padding(.horizontal, 10).padding(.vertical, 8)
                 }
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("仅存储在此设备", systemImage: "internaldrive").font(.caption).foregroundStyle(.secondary)
-                    HStack { Button("导入备份") { store.importFile() }; Button("导出备份") { store.exportFile() } }.font(.caption)
+                    Label("仅存储在此设备", systemImage: "internaldrive").font(.system(size: 13)).foregroundStyle(.secondary)
+                    HStack { Button("导入备份") { store.importFile() }; Button("导出备份") { store.exportFile() } }.font(.system(size: 13))
                 }.padding(16)
-            }.navigationSplitViewColumnWidth(min: 205, ideal: 220, max: 270)
+            }.navigationSplitViewColumnWidth(min: 220, ideal: 235, max: 280)
         } content: {
             VStack(alignment: .leading, spacing: 15) {
-                HStack { VStack(alignment: .leading, spacing: 7) { Text(filter.hasPrefix("分类:") || filter.hasPrefix("标签:") ? String(filter.dropFirst(3)) : filter).font(.title2.bold()); Text("\(filtered.count) 条提示词，让好想法有迹可循。").font(.caption).foregroundStyle(.secondary) }; Spacer(); Picker("排序", selection: $sort) { Text("最近更新").tag(0); Text("按名称").tag(1); Text("最多使用").tag(2) }.labelsHidden().frame(width: 100) }.padding(.horizontal, 20).padding(.top, 20)
+                HStack { VStack(alignment: .leading, spacing: 7) { Text(filter.hasPrefix("分类:") || filter.hasPrefix("标签:") ? String(filter.dropFirst(3)) : filter).font(.title2.bold()); Text("\(filtered.count) 条提示词").font(.system(size: 13)).foregroundStyle(.secondary) }; Spacer(); Picker("排序", selection: $sort) { Text("最近更新").tag(0); Text("按名称").tag(1); Text("最多使用").tag(2) }.labelsHidden().frame(width: 100) }.padding(.horizontal, 20).padding(.top, 20)
                 List(selection: $selected) {
                     ForEach(filtered) { p in
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text(p.category).font(.caption).foregroundStyle(Color.accentColor)
-                                Spacer()
-                                if store.drafts[p.id] != nil {
-                                    Label("未保存", systemImage: "pencil.circle.fill")
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundStyle(Color.accentColor)
-                                        .padding(.horizontal, 6).padding(.vertical, 3)
-                                        .background(Color.accentColor.opacity(0.1), in: Capsule())
-                                        .help("这条提示词有未保存的修改")
-                                }
-                                if p.favorite { Image(systemName: "star.fill").foregroundStyle(.orange).font(.caption) }
-                            }
-                            Text(p.title).font(.headline).lineLimit(2)
-                            Text(p.content).font(.caption).foregroundStyle(.secondary).lineLimit(3)
-                            HStack { Text(p.tags.map { "#\($0)" }.joined(separator: "  ")).lineLimit(1); Spacer(); Text(String(p.updated.prefix(10))) }.font(.system(size: 10)).foregroundStyle(.tertiary)
-                        }.padding(.vertical, 12).tag(p.id)
+                        PromptListRow(prompt: p, draft: store.drafts[p.id]).tag(p.id)
                         .onDrag {
                             NSItemProvider(item: Data(p.id.utf8) as NSData, typeIdentifier: UTType.promptkeepRecord.identifier)
                         }
@@ -444,7 +471,7 @@ struct ContentView: View {
                     }
                     if filtered.isEmpty { VStack(spacing: 12) { Image(systemName: "sparkles").font(.largeTitle); Text(search.isEmpty ? "给好想法一个位置" : "没有找到相关提示词"); Button("新建提示词") { editor = Prompt() } }.foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.vertical, 70) }
                 }.listStyle(.inset)
-            }.searchable(text: $search, prompt: "搜索标题、内容和标签").navigationSplitViewColumnWidth(min: 300, ideal: 370, max: 520)
+            }.searchable(text: $search, prompt: "搜索标题、内容和标签").navigationSplitViewColumnWidth(min: 340, ideal: 390, max: 540)
         } detail: {
             if let p = store.library.prompts.first(where: {$0.id == selected}) { Detail(prompt: p) }
             else { VStack(spacing: 18) { Image(systemName: "text.alignleft").font(.system(size: 40, weight: .ultraLight)); Text("留住每一个好想法").font(.title2); Text("选择一条提示词，开始下一次创作。").font(.callout) }.foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
@@ -466,7 +493,7 @@ struct ContentView: View {
                 if filter == "标签:" + name { filter = "全部提示词" }
             }).quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store)
         }
-        .sheet(item: $editor) { p in Editor(prompt: p) { selected = $0; filter = "全部提示词"; search = "" }.quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store) }
+        .sheet(item: $editor) { p in Editor(prompt: p) { selected = $0; filter = "全部提示词"; search = "" }.font(.system(size: 14)).quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store) }
         .confirmationDialog("删除「\(deletion?.title ?? "")」？此操作无法撤销。", isPresented: Binding(get: { deletion != nil }, set: { if !$0 { deletion = nil } })) { Button("删除", role: .destructive) { if let p = deletion { store.remove(p.id); if selected == p.id { selected = nil } }; deletion = nil } }
         .alert("操作未完成", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("好") { store.error = nil } } message: { Text(store.error ?? "") }
         .frame(minWidth: 980, minHeight: 650)
@@ -475,7 +502,7 @@ struct ContentView: View {
 @main struct PromptKeepApp: App {
     @StateObject private var store = Store()
     var body: some Scene {
-        WindowGroup("词笺") { ContentView().quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store).tint(AppColors.action) }
+        WindowGroup("词笺") { ContentView().font(.system(size: 14)).quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store).tint(AppColors.action) }
         .defaultSize(width: 1180, height: 780)
         .commands { CommandGroup(replacing: .newItem) {
             Button("分类管理…") {
