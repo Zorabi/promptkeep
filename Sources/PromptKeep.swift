@@ -10,6 +10,35 @@ extension View {
         else { self }
     }
 }
+// Keep the native search field and its keyboard behavior; suppress only its focus ring.
+struct SearchFocusAppearance: NSViewRepresentable {
+    final class AnchorView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            applyAppearance()
+            DispatchQueue.main.async { [weak self] in self?.applyAppearance() }
+        }
+        func applyAppearance() {
+            guard let window else { return }
+            func configure(_ view: NSView) {
+                if let search = view as? NSSearchField,
+                   search.placeholderString == "搜索标题、内容和标签" {
+                    search.focusRingType = .none
+                }
+                for child in view.subviews { configure(child) }
+            }
+            if let content = window.contentView { configure(content) }
+            for item in window.toolbar?.items ?? [] {
+                if let searchItem = item as? NSSearchToolbarItem { configure(searchItem.searchField) }
+                else if let view = item.view { configure(view) }
+            }
+        }
+    }
+    func makeNSView(context: Context) -> AnchorView { AnchorView() }
+    func updateNSView(_ view: AnchorView, context: Context) {
+        DispatchQueue.main.async { [weak view] in view?.applyAppearance() }
+    }
+}
 enum AppColors {
     static let action = Color(nsColor: NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -476,6 +505,7 @@ struct ContentView: View {
             if let p = store.library.prompts.first(where: {$0.id == selected}) { Detail(prompt: p) }
             else { VStack(spacing: 18) { Image(systemName: "text.alignleft").font(.system(size: 40, weight: .ultraLight)); Text("留住每一个好想法").font(.title2); Text("选择一条提示词，开始下一次创作。").font(.callout) }.foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
+        .background(SearchFocusAppearance().frame(width: 0, height: 0))
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PromptKeep.manageCategories"))) { _ in
             if NSApp.keyWindow != nil && editor == nil { managingCategories = true }
         }
