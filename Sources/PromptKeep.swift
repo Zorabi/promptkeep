@@ -10,16 +10,34 @@ extension View {
         else { self }
     }
 }
+enum AppColors {
+    static let action = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 1, green: 0.65, blue: 0.36, alpha: 1)
+            : NSColor(srgbRed: 0.72, green: 0.28, blue: 0.035, alpha: 1)
+    })
+}
 struct QuietButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
     var prominent = false
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.horizontal, 10).padding(.vertical, 6)
-            .foregroundStyle(prominent ? Color.white : Color.primary)
-            .background(prominent ? Color.accentColor.opacity(configuration.isPressed ? 0.7 : 1) : Color.primary.opacity(configuration.isPressed ? 0.06 : 0))
-            .clipShape(RoundedRectangle(cornerRadius: 7))
-            .opacity(isEnabled ? 1 : 0.4)
+        ButtonSurface(configuration: configuration, prominent: prominent)
+    }
+    private struct ButtonSurface: View {
+        let configuration: ButtonStyle.Configuration
+        let prominent: Bool
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.isFocused) private var isFocused
+        @Environment(\.colorScheme) private var colorScheme
+        @State private var hovered = false
+        private var active: Bool { configuration.isPressed || hovered || isFocused }
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .foregroundStyle(!isEnabled ? Color.secondary : prominent ? (colorScheme == .dark ? Color.black : Color.white) : AppColors.action)
+                .background(!isEnabled ? Color.primary.opacity(0.06) : prominent ? AppColors.action.opacity(configuration.isPressed ? 0.75 : active ? 0.88 : 1) : AppColors.action.opacity(active ? 0.22 : 0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .onHover { hovered = $0 }
+        }
     }
 }
 struct Editor: View {
@@ -194,8 +212,7 @@ struct Detail: View {
                 } label: {
                     Label(copied ? "已复制" : "复制\(section == 0 ? "提示词" : "笔记")", systemImage: copied ? "checkmark" : "doc.on.doc")
                         .padding(.horizontal, 3).padding(.vertical, 2)
-                }.buttonStyle(QuietButtonStyle())
-                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 7))
+                }.buttonStyle(QuietButtonStyle(prominent: true))
                     .disabled(section == 0 ? draft.content.isEmpty : draft.result.isEmpty)
                     .help("复制当前内容；未保存的修改会保留为草稿")
                     }
@@ -351,8 +368,8 @@ struct ContentView: View {
                 Text(title).font(.system(size: 11))
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
-            }.foregroundStyle(.secondary).padding(.horizontal, 10).padding(.vertical, 9)
-                .background(Color.primary.opacity(focusedNavigation == title || hoveredNavigation == title ? 0.09 : 0.04), in: RoundedRectangle(cornerRadius: 7))
+            }.foregroundStyle(AppColors.action).padding(.horizontal, 10).padding(.vertical, 9)
+                .background(AppColors.action.opacity(focusedNavigation == title || hoveredNavigation == title ? 0.22 : 0.12), in: RoundedRectangle(cornerRadius: 7))
         }.buttonStyle(.plain).focused($focusedNavigation, equals: title)
             .onHover { hoveredNavigation = $0 ? title : nil }.padding(.bottom, 6)
     }
@@ -458,7 +475,7 @@ struct ContentView: View {
 @main struct PromptKeepApp: App {
     @StateObject private var store = Store()
     var body: some Scene {
-        WindowGroup("词笺") { ContentView().quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store).tint(Color(red: 0.31, green: 0.39, blue: 0.79)) }
+        WindowGroup("词笺") { ContentView().quietFocus().buttonStyle(QuietButtonStyle()).environmentObject(store).tint(AppColors.action) }
         .defaultSize(width: 1180, height: 780)
         .commands { CommandGroup(replacing: .newItem) {
             Button("分类管理…") {
