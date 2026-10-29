@@ -50,7 +50,7 @@ build/tests/category-tests
 
 运行 `xcrun swift scripts/make-promo.swift` 生成 `docs/images/` 下的横版介绍图、竖版海报与分享封面。素材由矢量绘制的界面示意构成，不包含个人提示词或截图，署名为 dongx。
 
-宣传图当前使用与本机应用一致的橙色系统强调色（sRGB `#F7821B`）。应用控件会受 macOS 强调色设置影响，制作新素材时应先核对实际界面。
+现有宣传图使用橙色（sRGB `#F7821B`）绘制界面示意。应用按钮采用随浅色、深色外观变化的暖橙色，以提高文字对比度；更新素材时应核对实际界面。
 
 ## 标签与拖放
 
@@ -67,3 +67,7 @@ mkdir -p build/tests
 xcrun swiftc Sources/Models.swift Sources/Store.swift tests/DraftTests.swift -o build/tests/draft-tests
 build/tests/draft-tests
 ```
+
+## 列表与输入焦点
+
+列表展示草稿标题和摘要，搜索、排序仍使用已保存记录。摘要仅用于展示，简化换行及部分 Markdown 符号，不改写原始正文。列表标题与正文编辑区使用 16 磅字体，摘要、导航与按钮使用 14 磅字体，标签及说明使用 12–13 磅字体。
