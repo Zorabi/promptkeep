@@ -334,10 +334,91 @@ struct CategoryManager: View {
 extension UTType {
     static let promptkeepRecord = UTType(exportedAs: "dongx.promptkeep.record")
 }
+// Global frames keep hit testing consistent across the sidebar and prompt list.
+struct OrganizationTarget: Equatable {
+    var name: String
+    var isTag: Bool
+    var frame: CGRect
+    var key: String { (isTag ? "tag:" : "category:") + name }
+}
+struct OrganizationFrames: PreferenceKey {
+    static var defaultValue: [OrganizationTarget] = []
+    static func reduce(value: inout [OrganizationTarget], nextValue: () -> [OrganizationTarget]) {
+        value += nextValue()
+    }
+}
+// Receive mouse tracking directly: NSTableView can consume SwiftUI row gestures.
+// Right clicks pass through so the existing context menu stays available.
+struct PromptDragSurface: NSViewRepresentable {
+    var select: () -> Void
+    var changed: (CGPoint, CGPoint) -> Void
+    var ended: (CGPoint) -> Void
+    var globalOrigin: CGPoint
+    func makeNSView(context: Context) -> MouseView { MouseView() }
+    func updateNSView(_ view: MouseView, context: Context) {
+        view.select = select
+        view.changed = changed
+        view.ended = ended
+        view.globalOrigin = globalOrigin
+    }
+    final class MouseView: NSView {
+        var select: () -> Void = {}
+        var changed: (CGPoint, CGPoint) -> Void = { _, _ in }
+        var ended: (CGPoint) -> Void = { _ in }
+        var globalOrigin = CGPoint.zero
+        private var start: CGPoint?
+        private var dragging = false
+        override var isFlipped: Bool { true }
+        override var acceptsFirstResponder: Bool { true }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            if let event = NSApp.currentEvent,
+               event.type == .rightMouseDown || event.type == .rightMouseUp ||
+               event.modifierFlags.contains(.control) { return nil }
+            return super.hitTest(point)
+        }
+        override func mouseDown(with event: NSEvent) {
+            start = convert(event.locationInWindow, from: nil)
+            dragging = false
+            select()
+        }
+        private func location(_ event: NSEvent) -> CGPoint {
+            let point = convert(event.locationInWindow, from: nil)
+            return CGPoint(x: globalOrigin.x + point.x, y: globalOrigin.y + point.y)
+        }
+        override func mouseDragged(with event: NSEvent) {
+            guard let start else { return }
+            let point = convert(event.locationInWindow, from: nil)
+            guard dragging || hypot(point.x - start.x, point.y - start.y) >= 6 else { return }
+            dragging = true
+            changed(location(event), start)
+        }
+        override func mouseUp(with event: NSEvent) {
+            if dragging { ended(location(event)) }
+            start = nil
+            dragging = false
+        }
+        override func keyDown(with event: NSEvent) {
+            // Let List handle arrows and the responder chain handle shortcuts/Escape.
+            super.keyDown(with: event)
+        }
+    }
+}
+struct PromptMove: Equatable {
+    var id: String
+    var location: CGPoint
+    var anchor: CGPoint
+    var size: CGSize
+    var frame: CGRect {
+        CGRect(x: location.x - anchor.x, y: location.y - anchor.y,
+               width: size.width, height: size.height)
+    }
+}
 struct OrganizationRow: View {
     var name: String
     var isTag = false
     var selected = false
+    var directlyTargeted = false
     var select: () -> Void
     var onDrop: ([String]) -> Bool
     @State private var targeted = false
@@ -351,7 +432,20 @@ struct OrganizationRow: View {
         }.buttonStyle(.plain).focused($focused)
             .background((selected || focused || hovered) ? Color.primary.opacity(selected ? 0.09 : 0.045) : Color.clear, in: RoundedRectangle(cornerRadius: 7))
             .onHover { hovered = $0 }
-            .background(targeted ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            .background((targeted || directlyTargeted) ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(alignment: .trailing) {
+                if targeted || directlyTargeted {
+                    Image(systemName: "arrow.down.left")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.action).padding(.trailing, 10)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: OrganizationFrames.self, value: [
+                    OrganizationTarget(name: name, isTag: isTag, frame: geometry.frame(in: .global))
+                ])
+            })
             .onDrop(of: [.promptkeepRecord], isTargeted: $targeted) { providers in
                 guard !providers.isEmpty else { return false }
                 var ids: [String] = []
@@ -423,6 +517,15 @@ struct ContentView: View {
     @State private var selected: String?
     @State private var editor: Prompt?
     @State private var deletion: Prompt?
+    @State private var movingPrompt: PromptMove?
+    @State private var organizationTargets: [OrganizationTarget] = []
+    private func target(for move: PromptMove) -> OrganizationTarget? {
+        guard let index = overlappingTarget(for: move.frame, targets: organizationTargets.map(\.frame)) else { return nil }
+        return organizationTargets[index]
+    }
+    private var moveTarget: OrganizationTarget? {
+        movingPrompt.flatMap { target(for: $0) }
+    }
     @State private var sort = 0
     @State private var managingCategories = false
     @State private var managingTags = false
@@ -465,14 +568,14 @@ struct ContentView: View {
                         Text("分类").font(.system(size: 13)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
                         managementButton("管理分类…") { managingCategories = true }
                         ForEach(categories, id: \.self) { category in
-                            OrganizationRow(name: category, selected: filter == "分类:" + category, select: { filter = "分类:" + category }) {
+                            OrganizationRow(name: category, selected: filter == "分类:" + category, directlyTargeted: moveTarget?.key == "category:" + category, select: { filter = "分类:" + category }) {
                                 store.organize(ids: $0, category: category)
                             }
                         }
                         Text("标签").font(.system(size: 13)).foregroundStyle(.secondary).padding(.horizontal, 12).padding(.top, 18).padding(.bottom, 4)
                         managementButton("管理标签…") { managingTags = true }
                         ForEach(store.tags, id: \.self) { tag in
-                            OrganizationRow(name: tag, isTag: true, selected: filter == "标签:" + tag, select: { filter = "标签:" + tag }) {
+                            OrganizationRow(name: tag, isTag: true, selected: filter == "标签:" + tag, directlyTargeted: moveTarget?.key == "tag:" + tag, select: { filter = "标签:" + tag }) {
                                 store.organize(ids: $0, tag: tag)
                             }
                         }
@@ -481,7 +584,8 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("仅存储在此设备", systemImage: "internaldrive").font(.system(size: 13)).foregroundStyle(.secondary)
                     HStack { Button("导入备份") { store.importFile() }; Button("导出备份") { store.exportFile() } }.font(.system(size: 13))
-                }.padding(16)
+                }
+                .padding(16)
             }.navigationSplitViewColumnWidth(min: 220, ideal: 235, max: 280)
         } content: {
             VStack(alignment: .leading, spacing: 15) {
@@ -489,8 +593,24 @@ struct ContentView: View {
                 List(selection: $selected) {
                     ForEach(filtered) { p in
                         PromptListRow(prompt: p, draft: store.drafts[p.id]).tag(p.id)
-                        .onDrag {
-                            NSItemProvider(item: Data(p.id.utf8) as NSData, typeIdentifier: UTType.promptkeepRecord.identifier)
+                        .contentShape(Rectangle())
+                        .opacity(movingPrompt?.id == p.id ? 0.55 : 1)
+                        .overlay {
+                            GeometryReader { geometry in
+                                PromptDragSurface(select: { selected = p.id }, changed: { location, anchor in
+                                    movingPrompt = PromptMove(id: p.id, location: location,
+                                        anchor: anchor, size: geometry.size)
+                                }, ended: { location in
+                                    guard var move = movingPrompt, move.id == p.id else { return }
+                                    move.location = location
+                                    let destination = target(for: move)
+                                    movingPrompt = nil
+                                    guard let destination else { return }
+                                    _ = store.organize(ids: [p.id],
+                                        category: destination.isTag ? nil : destination.name,
+                                        tag: destination.isTag ? destination.name : nil)
+                                }, globalOrigin: geometry.frame(in: .global).origin)
+                            }
                         }
                         .contextMenu { Button("编辑") { selected = p.id }; Menu("移到分类") {
                             ForEach(categories, id: \.self) { category in Button(category) { _ = store.organize(ids: [p.id], category: category) } }
@@ -505,6 +625,45 @@ struct ContentView: View {
             if let p = store.library.prompts.first(where: {$0.id == selected}) { Detail(prompt: p) }
             else { VStack(spacing: 18) { Image(systemName: "text.alignleft").font(.system(size: 40, weight: .ultraLight)); Text("留住每一个好想法").font(.title2); Text("选择一条提示词，开始下一次创作。").font(.callout) }.foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity) }
         }
+        .onPreferenceChange(OrganizationFrames.self) { organizationTargets = $0 }
+        .overlay {
+            GeometryReader { geometry in
+                if let movingPrompt,
+                   let prompt = store.library.prompts.first(where: { $0.id == movingPrompt.id }) {
+                    let origin = geometry.frame(in: .global).origin
+                    VStack(alignment: .leading, spacing: 8) {
+                        PromptListRow(prompt: prompt, draft: store.drafts[prompt.id])
+                            .frame(height: movingPrompt.size.height)
+                            .opacity(0.7)
+                        if let destination = moveTarget {
+                            HStack(spacing: 7) {
+                                Image(systemName: destination.isTag ? "tag.fill" : "folder.fill")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(AppColors.action)
+                                Text(destination.isTag ? "添加至" : "移至")
+                                    .foregroundStyle(.secondary)
+                                Text(destination.name)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1).truncationMode(.middle)
+                                    .layoutPriority(1)
+                            }
+                            .font(.system(size: 12))
+                            .padding(.horizontal, 12).padding(.vertical, 8)
+                            .background(.regularMaterial, in: Capsule())
+                            .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+                        }
+                    }
+                    .frame(width: movingPrompt.size.width, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .offset(x: movingPrompt.location.x - origin.x - movingPrompt.anchor.x,
+                            y: movingPrompt.location.y - origin.y - movingPrompt.anchor.y)
+                }
+            }.allowsHitTesting(false)
+        }
+        .onExitCommand { movingPrompt = nil }
+        .onChange(of: filter) { _ in movingPrompt = nil }
+        .onChange(of: search) { _ in movingPrompt = nil }
         .background(SearchFocusAppearance().frame(width: 0, height: 0))
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PromptKeep.manageCategories"))) { _ in
             if NSApp.keyWindow != nil && editor == nil { managingCategories = true }
